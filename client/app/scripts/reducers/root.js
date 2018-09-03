@@ -461,10 +461,6 @@ export function rootReducer(state = initialState, action) {
       }));
     }
 
-    case ActionTypes.DO_SEARCH: {
-      return state.set('searchQuery', action.searchQuery);
-    }
-
     case ActionTypes.ENTER_EDGE: {
       return state.set('mouseOverEdgeId', action.edgeId);
     }
@@ -494,10 +490,9 @@ export function rootReducer(state = initialState, action) {
       }));
     }
 
-    case ActionTypes.PIN_SEARCH: {
-      const pinnedSearches = state.get('pinnedSearches');
-      state = state.setIn(['pinnedSearches', pinnedSearches.size], action.query);
-      state = state.set('searchQuery', '');
+    case ActionTypes.UPDATE_SEARCH: {
+      state = state.set('pinnedSearches', makeList(action.pinnedSearches));
+      state = state.set('searchQuery', action.searchQuery || '');
       return applyPinnedSearches(state);
     }
 

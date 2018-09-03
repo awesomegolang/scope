@@ -1410,44 +1410,10 @@ a {
 }
 
 .search {
-  pointer-events: all;
-
   &-wrapper {
     margin: 0 8px;
     min-width: 160px;
     text-align: right;
-  }
-
-  &-disabled {
-    opacity: 0.5;
-    cursor: disabled;
-  }
-
-  &-focused &-label-hint,
-  &-pinned &-label-hint,
-  &-filled &-label-hint {
-    transition: opacity 0.1s 0s $base-ease;
-    opacity: 0;
-  }
-
-  &-focused &-hint,
-  &-filled &-hint,
-  &-pinned &-hint {
-    opacity: 1;
-    transform: translate3d(0, 2.75em, 0);
-    transition: transform 0.3s 0.3s $base-ease, opacity 0.3s 0.3s $base-ease;
-  }
-
-  &-focused &-input-field,
-  &-filled &-input-field,
-  &-pinned &-input-field {
-    flex: 1;
-  }
-
-  &-focused,
-  &-filled,
-  &-pinned {
-    width: 100%;
   }
 }
 
@@ -1575,6 +1541,9 @@ a {
       &-term {
         flex: 1;
         color: $text-secondary-color;
+        i {
+          margin-right: 5px;
+        }
       }
 
       &-term-label {

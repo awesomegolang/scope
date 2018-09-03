@@ -1,11 +1,10 @@
 import React from 'react';
 import { connect } from 'react-redux';
-import classnames from 'classnames';
-import { debounce } from 'lodash';
+import { debounce, isEmpty } from 'lodash';
 import { Search } from 'weaveworks-ui-components';
 import styled from 'styled-components';
 
-import { doSearch, toggleHelp } from '../actions/app-actions';
+import { updateSearch, toggleHelp } from '../actions/app-actions';
 import { searchMatchCountByTopologySelector } from '../selectors/search';
 import { isResourceViewModeSelector } from '../selectors/topology';
 import { slugify } from '../utils/string-utils';
@@ -13,12 +12,20 @@ import { isTopologyNodeCountZero } from '../utils/topology-utils';
 import { trackAnalyticsEvent } from '../utils/tracking-utils';
 
 
-function shortenHintLabel(text) {
-  return text
-    .split(' ')[0]
-    .toLowerCase()
-    .substr(0, 12);
-}
+const SearchWrapper = styled.div`
+  margin: 0 8px;
+  min-width: 160px;
+  text-align: right;
+`;
+
+const SearchContainer = styled.div`
+  display: inline-block;
+  position: relative;
+  pointer-events: all;
+  line-height: 100%;
+  max-width: 400px;
+  width: 100%;
+`;
 
 const SearchHint = styled.div`
   font-size: ${props => props.theme.fontSizes.tiny};
@@ -42,17 +49,12 @@ const SearchHintIcon = styled.span`
   }
 `;
 
-const SearchContainer = styled.div`
-  transition: width 0.3s 0s ease-in-out;
-  display: inline-block;
-  position: relative;
-  width: 10em;
-
-  ${props => props.focused && `
-    width: 100%;
-  `};
-`;
-
+function shortenHintLabel(text) {
+  return text
+    .split(' ')[0]
+    .toLowerCase()
+    .substr(0, 12);
+}
 
 // dynamic hint based on node names
 function getHint(nodes) {
@@ -75,53 +77,25 @@ function getHint(nodes) {
 }
 
 
-class SearchWrapper extends React.Component {
+class SearchComponent extends React.Component {
   state = {
-    value: '',
     focused: false,
   };
 
   constructor(props, context) {
     super(props, context);
 
-    this.handleChange = this.handleChange.bind(this);
-    this.doSearch = debounce(this.doSearch.bind(this), 200);
+    this.debouncedHandleChange = debounce(this.handleChange, 50);
   }
 
-  handleChange(ev) {
-    const inputValue = ev.target.value;
-    let value = inputValue;
-    // In render() props.searchQuery can be set from the outside, but state.value
-    // must have precedence for quick feedback. Now when the user backspaces
-    // quickly enough from `text`, a previouse doSearch(`text`) will come back
-    // via props and override the empty state.value. To detect this edge case
-    // we instead set value to null when backspacing.
-    if (this.state.value && value === '') {
-      value = null;
-    }
-    this.setState({ value });
-    this.doSearch(inputValue);
+  handleChange = (searchQuery, pinnedSearches) => {
+    trackAnalyticsEvent('scope.search.query.change', {
+      layout: this.props.topologyViewMode,
+      topologyId: this.props.currentTopology.get('id'),
+      parentTopologyId: this.props.currentTopology.get('parentId'),
+    });
+    this.props.updateSearch(searchQuery, pinnedSearches);
   }
-
-  doSearch(value) {
-    if (value !== '') {
-      trackAnalyticsEvent('scope.search.query.change', {
-        layout: this.props.topologyViewMode,
-        topologyId: this.props.currentTopology.get('id'),
-        parentTopologyId: this.props.currentTopology.get('parentId'),
-      });
-    }
-    this.props.doSearch(value);
-  }
-
-  componentWillReceiveProps(nextProps) {
-    // when cleared from the outside, reset internal state
-    if (this.props.searchQuery !== nextProps.searchQuery && nextProps.searchQuery === '') {
-      this.setState({ value: '' });
-    }
-  }
-
-  handleChange = () => {}
 
   handleFocus = () => {
     this.setState({ focused: true });
@@ -133,48 +107,30 @@ class SearchWrapper extends React.Component {
 
   render() {
     const {
-      nodes, pinnedSearches, searchMatchCountByTopology,
-      isResourceViewMode, searchQuery, topologiesLoaded
+      searchHint, searchMatchesCount, searchQuery, pinnedSearches, topologiesLoaded,
+      isResourceViewMode, isTopologyEmpty,
     } = this.props;
-    const { focused } = this.state;
-
-    const hidden = !topologiesLoaded || isResourceViewMode;
-    const disabled = this.props.isTopologyNodeCountZero && !hidden;
-    const showPinnedSearches = pinnedSearches.size > 0;
-
-    // manual clear (null) has priority, then props, then state
-    const classNames = classnames('search', 'hideable', {
-      hide: hidden,
-      'search-disabled': disabled
-    });
-
-    const matchCount = searchMatchCountByTopology
-      .reduce((count, topologyMatchCount) => count + topologyMatchCount, 0);
-    const title = matchCount ? `${matchCount} matches` : undefined;
-
-    console.log(classNames, searchQuery, pinnedSearches.toJS());
 
     return (
-      <div className="search-wrapper">
-        <SearchContainer focused={focused} title={title}>
+      <SearchWrapper>
+        <SearchContainer title={searchMatchesCount ? `${searchMatchesCount} matches` : undefined}>
           <Search
             placeholder="search"
             query={searchQuery}
-            pinnedTerms={pinnedSearches.toJS()}
-            onChange={this.handleChange}
+            pinnedTerms={pinnedSearches}
+            disabled={topologiesLoaded && !isResourceViewMode && isTopologyEmpty}
+            onChange={this.debouncedHandleChange}
             onFocus={this.handleFocus}
             onBlur={this.handleBlur}
           />
-          {!showPinnedSearches &&
-            <SearchHint active={focused}>
-              {getHint(nodes)} <SearchHintIcon
-                className="fa fa-question-circle"
-                onMouseDown={this.props.toggleHelp}
-              />
-            </SearchHint>
-          }
+          <SearchHint active={this.state.focused && isEmpty(pinnedSearches)}>
+            {searchHint} <SearchHintIcon
+              className="fa fa-question-circle"
+              onMouseDown={this.props.toggleHelp}
+            />
+          </SearchHint>
         </SearchContainer>
-      </div>
+      </SearchWrapper>
     );
   }
 }
@@ -182,17 +138,18 @@ class SearchWrapper extends React.Component {
 
 export default connect(
   state => ({
-    nodes: state.get('nodes'),
+    searchHint: getHint(state.get('nodes')),
     topologyViewMode: state.get('topologyViewMode'),
     isResourceViewMode: isResourceViewModeSelector(state),
-    isTopologyNodeCountZero: isTopologyNodeCountZero(state),
+    isTopologyEmpty: isTopologyNodeCountZero(state),
     currentTopology: state.get('currentTopology'),
     topologiesLoaded: state.get('topologiesLoaded'),
-    pinnedSearches: state.get('pinnedSearches'),
+    pinnedSearches: state.get('pinnedSearches').toJS(),
     searchQuery: state.get('searchQuery'),
-    searchMatchCountByTopology: searchMatchCountByTopologySelector(state),
+    searchMatchesCount: searchMatchCountByTopologySelector(state)
+      .reduce((count, topologyMatchCount) => count + topologyMatchCount, 0),
   }),
   {
-    doSearch, toggleHelp
+    updateSearch, toggleHelp
   }
-)(SearchWrapper);
+)(SearchComponent);

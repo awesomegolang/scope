@@ -170,11 +170,12 @@ export function pinPreviousMetric() {
   };
 }
 
-export function pinSearch() {
+export function updateSearch(searchQuery = '', pinnedSearches = []) {
   return (dispatch, getState) => {
     dispatch({
-      type: ActionTypes.PIN_SEARCH,
-      query: getState().get('searchQuery'),
+      type: ActionTypes.UPDATE_SEARCH,
+      pinnedSearches,
+      searchQuery,
     });
     updateRoute(getState);
   };
@@ -248,16 +249,6 @@ export function clickForceRelayout() {
         forceRelayout: false
       });
     }, 100);
-  };
-}
-
-export function doSearch(searchQuery) {
-  return (dispatch, getState) => {
-    dispatch({
-      type: ActionTypes.DO_SEARCH,
-      searchQuery
-    });
-    updateRoute(getState);
   };
 }
 
@@ -445,11 +436,6 @@ export function hitEsc() {
         pipeId: controlPipe.get('id')
       });
       updateRoute(getState);
-      // Don't deselect node on ESC if there is a controlPipe (keep terminal open)
-    } else if (state.get('searchFocused')) {
-      if (state.get('searchQuery')) {
-        dispatch(doSearch(''));
-      }
     } else if (state.get('showingHelp')) {
       dispatch(hideHelp());
     } else if (state.get('nodeDetails').last() && !controlPipe) {
