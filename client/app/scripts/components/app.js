@@ -20,10 +20,8 @@ import TopologyOptions from './topology-options';
 import Overlay from './overlay';
 import { getApiDetails } from '../utils/web-api-utils';
 import {
-  focusSearch,
   pinNextMetric,
   pinPreviousMetric,
-  hitBackspace,
   hitEsc,
   unpinMetric,
   toggleHelp,
@@ -54,7 +52,6 @@ import {
 } from '../selectors/topology';
 import { VIEWPORT_RESIZE_DEBOUNCE_INTERVAL } from '../constants/timer';
 import {
-  BACKSPACE_KEY_CODE,
   ESC_KEY_CODE,
 } from '../constants/key-codes';
 
@@ -116,8 +113,6 @@ class App extends React.Component {
     // don't get esc in onKeyPress
     if (ev.keyCode === ESC_KEY_CODE) {
       this.props.dispatch(hitEsc());
-    } else if (ev.keyCode === BACKSPACE_KEY_CODE) {
-      this.props.dispatch(hitBackspace());
     } else if (ev.code === 'KeyD' && ev.ctrlKey && !showingTerminal) {
       toggleDebugToolbar();
       this.forceUpdate();
@@ -125,13 +120,13 @@ class App extends React.Component {
   }
 
   onKeyPress(ev) {
-    const { dispatch, searchFocused, showingTerminal } = this.props;
+    const { dispatch, showingTerminal } = this.props;
     //
     // keyup gives 'key'
     // keypress gives 'char'
     // Distinction is important for international keyboard layouts where there
     // is often a different {key: char} mapping.
-    if (!searchFocused && !showingTerminal) {
+    if (!showingTerminal) {
       keyPressLog('onKeyPress', 'keyCode', ev.keyCode, ev);
       const char = String.fromCharCode(ev.charCode);
       if (char === '<') {
@@ -158,9 +153,6 @@ class App extends React.Component {
           metricType: this.props.pinnedMetricType
         });
         dispatch(unpinMetric());
-      } else if (char === '/') {
-        ev.preventDefault();
-        dispatch(focusSearch());
       } else if (char === '?') {
         dispatch(toggleHelp());
       }
@@ -254,7 +246,6 @@ function mapStateToProps(state) {
     isGraphViewMode: isGraphViewModeSelector(state),
     pinnedMetricType: state.get('pinnedMetricType'),
     routeSet: state.get('routeSet'),
-    searchFocused: state.get('searchFocused'),
     searchQuery: state.get('searchQuery'),
     showingDetails: state.get('nodeDetails').size > 0,
     showingHelp: state.get('showingHelp'),

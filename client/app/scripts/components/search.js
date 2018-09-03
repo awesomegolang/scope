@@ -2,16 +2,15 @@ import React from 'react';
 import { connect } from 'react-redux';
 import classnames from 'classnames';
 import { debounce } from 'lodash';
+import { Search } from 'weaveworks-ui-components';
+import styled from 'styled-components';
 
-import { blurSearch, doSearch, focusSearch, pinSearch, toggleHelp } from '../actions/app-actions';
+import { doSearch, toggleHelp } from '../actions/app-actions';
 import { searchMatchCountByTopologySelector } from '../selectors/search';
 import { isResourceViewModeSelector } from '../selectors/topology';
 import { slugify } from '../utils/string-utils';
-import { parseQuery } from '../utils/search-utils';
 import { isTopologyNodeCountZero } from '../utils/topology-utils';
 import { trackAnalyticsEvent } from '../utils/tracking-utils';
-import SearchItem from './search-item';
-import { ENTER_KEY_CODE } from '../constants/key-codes';
 
 
 function shortenHintLabel(text) {
@@ -20,6 +19,39 @@ function shortenHintLabel(text) {
     .toLowerCase()
     .substr(0, 12);
 }
+
+const SearchHint = styled.div`
+  font-size: ${props => props.theme.fontSizes.tiny};
+  color: ${props => props.theme.colors.purple400};
+  transition: transform 0.3s 0s ease-in-out, opacity 0.3s 0s ease-in-out;
+  text-align: left;
+  padding: 0 1em;
+  opacity: 0;
+
+  ${props => props.active && `
+    opacity: 1;
+  `};
+`;
+
+const SearchHintIcon = styled.span`
+  font-size: ${props => props.theme.fontSizes.normal};
+  cursor: pointer;
+
+  &:hover {
+    color: ${props => props.theme.colors.purple600};
+  }
+`;
+
+const SearchContainer = styled.div`
+  transition: width 0.3s 0s ease-in-out;
+  display: inline-block;
+  position: relative;
+  width: 10em;
+
+  ${props => props.focused && `
+    width: 100%;
+  `};
+`;
 
 
 // dynamic hint based on node names
@@ -39,27 +71,21 @@ function getHint(nodes) {
     }
   }
 
-  return `Try "${label}", "${metadataLabel}:${metadataValue}", or "cpu > 2%".
-   Hit enter to apply the search as a filter.`;
+  return `Try "${label}", "${metadataLabel}:${metadataValue}", or "cpu > 2%".`;
 }
 
 
-class Search extends React.Component {
+class SearchWrapper extends React.Component {
+  state = {
+    value: '',
+    focused: false,
+  };
+
   constructor(props, context) {
     super(props, context);
-    this.handleBlur = this.handleBlur.bind(this);
-    this.handleChange = this.handleChange.bind(this);
-    this.handleKeyUp = this.handleKeyUp.bind(this);
-    this.handleFocus = this.handleFocus.bind(this);
-    this.saveQueryInputRef = this.saveQueryInputRef.bind(this);
-    this.doSearch = debounce(this.doSearch.bind(this), 200);
-    this.state = {
-      value: ''
-    };
-  }
 
-  handleBlur() {
-    this.props.blurSearch();
+    this.handleChange = this.handleChange.bind(this);
+    this.doSearch = debounce(this.doSearch.bind(this), 200);
   }
 
   handleChange(ev) {
@@ -77,22 +103,6 @@ class Search extends React.Component {
     this.doSearch(inputValue);
   }
 
-  handleKeyUp(ev) {
-    // If the search query is parsable, pin it when ENTER key is hit.
-    if (ev.keyCode === ENTER_KEY_CODE && parseQuery(this.props.searchQuery)) {
-      trackAnalyticsEvent('scope.search.query.pin', {
-        layout: this.props.topologyViewMode,
-        topologyId: this.props.currentTopology.get('id'),
-        parentTopologyId: this.props.currentTopology.get('parentId'),
-      });
-      this.props.pinSearch();
-    }
-  }
-
-  handleFocus() {
-    this.props.focusSearch();
-  }
-
   doSearch(value) {
     if (value !== '') {
       trackAnalyticsEvent('scope.search.query.change', {
@@ -104,10 +114,6 @@ class Search extends React.Component {
     this.props.doSearch(value);
   }
 
-  saveQueryInputRef(ref) {
-    this.queryInput = ref;
-  }
-
   componentWillReceiveProps(nextProps) {
     // when cleared from the outside, reset internal state
     if (this.props.searchQuery !== nextProps.searchQuery && nextProps.searchQuery === '') {
@@ -115,68 +121,59 @@ class Search extends React.Component {
     }
   }
 
-  componentDidUpdate() {
-    if (this.props.searchFocused) {
-      this.queryInput.focus();
-    } else if (!this.state.value) {
-      this.queryInput.blur();
-    }
+  handleChange = () => {}
+
+  handleFocus = () => {
+    this.setState({ focused: true });
+  }
+
+  handleBlur = () => {
+    this.setState({ focused: false });
   }
 
   render() {
     const {
-      nodes, pinnedSearches, searchFocused, searchMatchCountByTopology,
-      isResourceViewMode, searchQuery, topologiesLoaded, inputId = 'search'
+      nodes, pinnedSearches, searchMatchCountByTopology,
+      isResourceViewMode, searchQuery, topologiesLoaded
     } = this.props;
+    const { focused } = this.state;
+
     const hidden = !topologiesLoaded || isResourceViewMode;
     const disabled = this.props.isTopologyNodeCountZero && !hidden;
-    const matchCount = searchMatchCountByTopology
-      .reduce((count, topologyMatchCount) => count + topologyMatchCount, 0);
     const showPinnedSearches = pinnedSearches.size > 0;
+
     // manual clear (null) has priority, then props, then state
-    const value = this.state.value === null ? '' : this.state.value || searchQuery || '';
     const classNames = classnames('search', 'hideable', {
       hide: hidden,
-      'search-pinned': showPinnedSearches,
-      'search-matched': matchCount,
-      'search-filled': value,
-      'search-focused': searchFocused,
       'search-disabled': disabled
     });
-    const title = matchCount ? `${matchCount} matches` : null;
+
+    const matchCount = searchMatchCountByTopology
+      .reduce((count, topologyMatchCount) => count + topologyMatchCount, 0);
+    const title = matchCount ? `${matchCount} matches` : undefined;
+
+    console.log(classNames, searchQuery, pinnedSearches.toJS());
 
     return (
       <div className="search-wrapper">
-        <div className={classNames} title={title}>
-          <div className="search-input">
-            {showPinnedSearches && pinnedSearches.toIndexedSeq()
-              .map(query => <SearchItem query={query} key={query} />)}
-            <input
-              className="search-input-field"
-              type="text"
-              id={inputId}
-              value={value}
-              onChange={this.handleChange}
-              onKeyUp={this.handleKeyUp}
-              onFocus={this.handleFocus}
-              onBlur={this.handleBlur}
-              disabled={disabled}
-              ref={this.saveQueryInputRef} />
-          </div>
-          <div className="search-label">
-            <i className="fa fa-search search-label-icon" />
-            <span className="search-label-hint" htmlFor={inputId}>
-              Search
-            </span>
-          </div>
+        <SearchContainer focused={focused} title={title}>
+          <Search
+            placeholder="search"
+            query={searchQuery}
+            pinnedTerms={pinnedSearches.toJS()}
+            onChange={this.handleChange}
+            onFocus={this.handleFocus}
+            onBlur={this.handleBlur}
+          />
           {!showPinnedSearches &&
-            <div className="search-hint">
-              {getHint(nodes)} <span
-                className="search-help-link fa fa-question-circle"
-                onMouseDown={this.props.toggleHelp} />
-            </div>
+            <SearchHint active={focused}>
+              {getHint(nodes)} <SearchHintIcon
+                className="fa fa-question-circle"
+                onMouseDown={this.props.toggleHelp}
+              />
+            </SearchHint>
           }
-        </div>
+        </SearchContainer>
       </div>
     );
   }
@@ -192,11 +189,10 @@ export default connect(
     currentTopology: state.get('currentTopology'),
     topologiesLoaded: state.get('topologiesLoaded'),
     pinnedSearches: state.get('pinnedSearches'),
-    searchFocused: state.get('searchFocused'),
     searchQuery: state.get('searchQuery'),
     searchMatchCountByTopology: searchMatchCountByTopologySelector(state),
   }),
   {
-    blurSearch, doSearch, focusSearch, pinSearch, toggleHelp
+    doSearch, toggleHelp
   }
-)(Search);
+)(SearchWrapper);

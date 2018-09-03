@@ -71,7 +71,6 @@ export const initialState = makeMap({
   pinnedSearches: makeList(), // list of node filters
   routeSet: false,
   storeViewState: true,
-  searchFocused: false,
   searchQuery: '',
   selectedNetwork: null,
   selectedNodeId: null,
@@ -215,10 +214,6 @@ export function rootReducer(state = initialState, action) {
   }
 
   switch (action.type) {
-    case ActionTypes.BLUR_SEARCH: {
-      return state.set('searchFocused', false);
-    }
-
     case ActionTypes.CHANGE_TOPOLOGY_OPTION: {
       // set option on parent topology
       const topology = findTopologyById(state.get('topologies'), action.topologyId);
@@ -499,10 +494,6 @@ export function rootReducer(state = initialState, action) {
       }));
     }
 
-    case ActionTypes.FOCUS_SEARCH: {
-      return state.set('searchFocused', true);
-    }
-
     case ActionTypes.PIN_SEARCH: {
       const pinnedSearches = state.get('pinnedSearches');
       state = state.setIn(['pinnedSearches', pinnedSearches.size], action.query);
@@ -720,12 +711,6 @@ export function rootReducer(state = initialState, action) {
         state = state.update('nodeDetails', nodeDetails => nodeDetails.clear());
       }
       return state;
-    }
-
-    case ActionTypes.UNPIN_SEARCH: {
-      const pinnedSearches = state.get('pinnedSearches').filter(query => query !== action.query);
-      state = state.set('pinnedSearches', pinnedSearches);
-      return applyPinnedSearches(state);
     }
 
     case ActionTypes.DEBUG_TOOLBAR_INTERFERING: {

@@ -2,7 +2,6 @@ import { zipObject } from 'lodash';
 
 const ACTION_TYPES = [
   'ADD_QUERY_FILTER',
-  'BLUR_SEARCH',
   'CACHE_ZOOM_STATE',
   'CHANGE_INSTANCE',
   'CHANGE_TOPOLOGY_OPTION',
@@ -26,7 +25,6 @@ const ACTION_TYPES = [
   'ENTER_EDGE',
   'ENTER_NODE',
   'FINISH_TIME_TRAVEL_TRANSITION',
-  'FOCUS_SEARCH',
   'HIDE_HELP',
   'HOVER_METRIC',
   'JUMP_TO_TIME',
@@ -67,7 +65,6 @@ const ACTION_TYPES = [
   'UNHOVER_METRIC',
   'UNPIN_METRIC',
   'UNPIN_NETWORK',
-  'UNPIN_SEARCH',
 ];
 
 export default zipObject(ACTION_TYPES, ACTION_TYPES);

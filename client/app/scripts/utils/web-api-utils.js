@@ -4,7 +4,7 @@ import { defaults } from 'lodash';
 import { Map as makeMap, List } from 'immutable';
 
 import {
-  blurSearch, clearControlError, closeWebsocket, openWebsocket, receiveError,
+  clearControlError, closeWebsocket, openWebsocket, receiveError,
   receiveApiDetails, receiveNodesDelta, receiveNodeDetails, receiveControlError,
   receiveControlNodeRemoved, receiveControlPipe, receiveControlPipeStatus,
   receiveControlSuccess, receiveTopologies, receiveNotFound,
@@ -398,7 +398,6 @@ export function doControlRequest(nodeId, control, dispatch) {
       dispatch(receiveControlSuccess(nodeId));
       if (res) {
         if (res.pipe) {
-          dispatch(blurSearch());
           const resizeTtyControl = res.resize_tty_control &&
             {id: res.resize_tty_control, probeId: control.probeId, nodeId: control.nodeId};
           dispatch(receiveControlPipe(
